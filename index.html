@@ -1,0 +1,215 @@
+The software-based Digital Instrument & Audio Recorder is absolutely perfect for this. It can be built entirely in HTML, CSS, and JavaScript using standard web tools, which means you can easily push the code to GitHub and submit the link within your 3-hour deadline.
+Here is the complete, single-file source code. You can copy this directly, save it, and upload it to GitHub right away.
+## The Complete Source Code (index.html)
+Create a file named index.html on your computer, open it in a text editor (like Notepad or VS Code), paste this code inside, and save it. You can double-click the file to open it in any web browser and watch it work instantly.
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Instrument & Audio Recorder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 { margin-bottom: 5px; color: #00adb5; }
+        p { color: #aaaaaa; margin-bottom: 25px; }
+        .controls {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        button {
+            background: #00adb5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #007a80; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        #recordBtn { background: #ff4757; }
+        #recordBtn:hover { background: #ff2a3b; }
+        #recordBtn.recording { background: #2ed573; animation: pulse 1.5s infinite; }
+        .keyboard {
+            display: flex;
+            justify-content: center;
+            background: #333;
+            padding: 20px 10px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        .key {
+            background: white;
+            color: black;
+            width: 50px;
+            height: 180px;
+            margin: 0 4px;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 15px;
+            font-weight: bold;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.2);
+            user-select: none;
+            transition: background 0.1s;
+        }
+        .key:active { background: #ddd; transform: translateY(2px); }
+        .audio-player {
+            margin-top: 15px;
+            width: 100%;
+            display: none;
+        }
+        audio { width: 100%; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Virtual Piano & Recorder</h1>
+    <p>Click the keys to play notes. Hit "Start Recording" to capture your performance!</p>
+
+    <div class="controls">
+        <button id="recordBtn">Start Recording</button>
+        <button id="stopBtn" disabled>Stop & Save</button>
+    </div>
+
+    <div class="keyboard">
+        <div class="key" data-note="261.63">C</div>
+        <div class="key" data-note="293.66">D</div>
+        <div class="key" data-note="329.63">E</div>
+        <div class="key" data-note="349.23">F</div>
+        <div class="key" data-note="392.00">G</div>
+        <div class="key" data-note="440.00">A</div>
+        <div class="key" data-note="493.88">B</div>
+        <div class="key" data-note="523.25">C2</div>
+    </div>
+
+    <div class="audio-player" id="audioPlayerContainer">
+        <h3>Your Recording:</h3>
+        <audio id="audioPlayback" controls></audio>
+    </div>
+</div>
+
+<script>
+    // Audio Synthesis Setup
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playNote(frequency) {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        
+        // Destines sound to both speakers and our recording stream
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        if (destStream) {
+            gainNode.connect(destStream);
+        }
+        
+        oscillator.start();
+        // Smooth fade out to make it sound natural
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+        oscillator.stop(audioCtx.currentTime + 1);
+    }
+
+    // Attach click events to piano keys
+    document.querySelectorAll('.key').forEach(key => {
+        key.addEventListener('mousedown', () => {
+            const freq = parseFloat(key.getAttribute('data-note'));
+            playNote(freq);
+        });
+    });
+
+    // Recording Logic
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const audioPlayerContainer = document.getElementById('audioPlayerContainer');
+
+    let mediaRecorder;
+    let recordedChunks = [];
+    // Create an audio destination stream to capture internal app audio
+    const destStream = audioCtx.createMediaStreamDestination();
+
+    recordBtn.addEventListener('click', () => {
+        recordedChunks = [];
+        // Capture the internal audio stream from our virtual instrument
+        mediaRecorder = new MediaRecorder(destStream.stream);
+        
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                recordedChunks.push(e.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const audioURL = URL.createObjectURL(blob);
+            audioPlayback.src = audioURL;
+            audioPlayerContainer.style.display = 'block';
+        };
+
+        mediaRecorder.start();
+        recordBtn.textContent = 'Recording...';
+        recordBtn.classList.add('recording');
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+    });
+
+    stopBtn.addEventListener('click', () => {
+        mediaRecorder.stop();
+        recordBtn.textContent = 'Start Recording';
+        recordBtn.classList.remove('recording');
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+    });
+</script>
+
+</body>
+</html>
+
+## 3-Step GitHub Deployment Plan (Do this now)
+
+   1. Log into GitHub and click the green New repository button.
+   2. Name it something distinct like virtual-instrument-recorder, keep it Public, and click Create repository.
+   3. Upload the index.html file using the GitHub web interface upload button, then commit the changes.
+
+Would you like me to write a README.md file description that you can copy and paste into GitHub to make your project look incredibly professional for grading?
+
